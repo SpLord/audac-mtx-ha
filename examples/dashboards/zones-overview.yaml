@@ -1,0 +1,121 @@
+################################################################################
+# AUDAC MTX — Zones Overview (Tile-Card 4×2 grid)
+#
+# Copy-paste this YAML into a Lovelace view. Each zone gets a Tile card with:
+#   - Zone name (clickable for full media-player popup)
+#   - Volume slider
+#   - Source dropdown
+#   - Mute / volume-up / volume-down buttons
+#
+# Adjust the entity IDs to match your install. Default IDs follow this pattern:
+#   media_player.audac_mtx88_zone_1 .. zone_8
+# Check Settings → Devices & Services → AUDAC MTX → Entities for the actual IDs.
+################################################################################
+
+type: grid
+columns: 4
+square: false
+cards:
+  - type: tile
+    entity: media_player.audac_mtx88_zone_1
+    name: Zone 1
+    icon: mdi:speaker
+    state_content:
+      - source
+      - volume_level
+    features_position: bottom
+    features:
+      - type: media-player-volume-slider
+      - type: media-player-source-select
+      - type: media-player-playback
+
+  - type: tile
+    entity: media_player.audac_mtx88_zone_2
+    name: Zone 2
+    icon: mdi:speaker
+    state_content:
+      - source
+      - volume_level
+    features_position: bottom
+    features:
+      - type: media-player-volume-slider
+      - type: media-player-source-select
+      - type: media-player-playback
+
+  - type: tile
+    entity: media_player.audac_mtx88_zone_3
+    name: Zone 3
+    icon: mdi:speaker
+    state_content:
+      - source
+      - volume_level
+    features_position: bottom
+    features:
+      - type: media-player-volume-slider
+      - type: media-player-source-select
+      - type: media-player-playback
+
+  - type: tile
+    entity: media_player.audac_mtx88_zone_4
+    name: Zone 4
+    icon: mdi:speaker
+    state_content:
+      - source
+      - volume_level
+    features_position: bottom
+    features:
+      - type: media-player-volume-slider
+      - type: media-player-source-select
+      - type: media-player-playback
+
+  - type: tile
+    entity: media_player.audac_mtx88_zone_5
+    name: Zone 5
+    icon: mdi:speaker
+    state_content:
+      - source
+      - volume_level
+    features_position: bottom
+    features:
+      - type: media-player-volume-slider
+      - type: media-player-source-select
+      - type: media-player-playback
+
+  - type: tile
+    entity: media_player.audac_mtx88_zone_6
+    name: Zone 6
+    icon: mdi:speaker
+    state_content:
+      - source
+      - volume_level
+    features_position: bottom
+    features:
+      - type: media-player-volume-slider
+      - type: media-player-source-select
+      - type: media-player-playback
+
+  - type: tile
+    entity: media_player.audac_mtx88_zone_7
+    name: Zone 7
+    icon: mdi:speaker
+    state_content:
+      - source
+      - volume_level
+    features_position: bottom
+    features:
+      - type: media-player-volume-slider
+      - type: media-player-source-select
+      - type: media-player-playback
+
+  - type: tile
+    entity: media_player.audac_mtx88_zone_8
+    name: Zone 8
+    icon: mdi:speaker
+    state_content:
+      - source
+      - volume_level
+    features_position: bottom
+    features:
+      - type: media-player-volume-slider
+      - type: media-player-source-select
+      - type: media-player-playback

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from homeassistant.components.media_player import (
+    MediaPlayerDeviceClass,
     MediaPlayerEntity,
     MediaPlayerEntityFeature,
     MediaPlayerState,
@@ -29,6 +30,8 @@ async def async_setup_entry(
 
 
 class AudacZone(AudacEntity, MediaPlayerEntity):
+    _attr_device_class = MediaPlayerDeviceClass.SPEAKER
+    _attr_icon = "mdi:speaker"
     _attr_supported_features = (
         MediaPlayerEntityFeature.VOLUME_SET
         | MediaPlayerEntityFeature.VOLUME_STEP

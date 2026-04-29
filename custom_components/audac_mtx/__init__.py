@@ -23,6 +23,11 @@ async def async_setup_entry(hass: "HomeAssistant", entry: "ConfigEntry") -> bool
     port: int = entry.data.get(CONF_PORT, DEFAULT_PORT)
     zones: int = entry.data.get("zones", 8)
     source_id: str = entry.data.get("source_id", DEFAULT_SOURCE_ID)
+    model: str = entry.data.get("model", "MTX")
+
+    legacy_title = f"AUDAC {model} ({host})"
+    if entry.title == legacy_title:
+        hass.config_entries.async_update_entry(entry, title=f"AUDAC {model}")
 
     hub = AudacHub(host=host, port=port, zones=zones, source_id=source_id)
     try:

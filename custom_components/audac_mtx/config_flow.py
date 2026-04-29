@@ -71,7 +71,7 @@ class AudacMtxFlow(ConfigFlow, domain=DOMAIN):
                 await self.async_set_unique_id(f"{host}:{port}")
                 self._abort_if_unique_id_configured()
                 model = MODEL_MTX88 if user_input.get("zones", 8) == 8 else MODEL_MTX48
-                title = f"AUDAC {model} ({host})"
+                title = f"AUDAC {model}"
                 data = {**user_input, "model": model, "firmware": fw}
                 return self.async_create_entry(title=title, data=data)
 

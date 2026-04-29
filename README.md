@@ -69,6 +69,18 @@ Volume values are inverted on the wire (0 = max, 70 = min); we map to/from HA's 
 
 The MTX broadcasts an Update frame to every connected client after any state change (its own front-panel knobs, the AUDAC Touch app, wall panels) — so HA stays in sync without polling.
 
+## Dashboard quickstart
+
+Home Assistant's "Add to Dashboard" button creates basic Tile cards. To get full Tile features (volume slider + source select + playback) for every zone, copy one of the example layouts from [`examples/dashboards/`](examples/dashboards/):
+
+| File | Layout |
+|------|--------|
+| `zones-overview.yaml` | 4×2 Tile-card grid with volume slider, source select, mute per zone |
+| `zone-detail.yaml`    | Single zone with full media-control card + bass/treble sliders     |
+| `zones-compact-list.yaml` | Vertical list, one row per zone (good for mobile sidebars)   |
+
+Open Lovelace, edit the view (pencil icon top-right), choose **Edit raw configuration** (kebab menu), and paste the YAML inside a `views:` entry. Adjust entity IDs to match your install (default pattern: `media_player.audac_mtx88_zone_<n>` or `..._mtx48_zone_<n>`).
+
 ## Limitations
 
 - **Single TCP connection** is a hard device limit. While the AUDAC Touch app or web UI is open, this integration is "disconnected" — controls are ignored. Close the other client to regain control.

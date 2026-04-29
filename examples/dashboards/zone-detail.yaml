@@ -1,0 +1,19 @@
+################################################################################
+# AUDAC MTX — Single zone detail view
+#
+# Detailed control of one zone with full media-player card,
+# bass + treble sliders, and quick mute toggle.
+################################################################################
+
+type: vertical-stack
+cards:
+  - type: media-control
+    entity: media_player.audac_mtx88_zone_1
+
+  - type: entities
+    title: Tone (Zone 1)
+    entities:
+      - entity: number.audac_mtx88_zone_1_bass
+        name: Bass
+      - entity: number.audac_mtx88_zone_1_treble
+        name: Treble
