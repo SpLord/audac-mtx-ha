@@ -1,0 +1,33 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "AUDAC MTX",
+        "description": "{hint}",
+        "data": {
+          "host": "Host / IP",
+          "port": "TCP port",
+          "zones": "Zones (4 or 8)",
+          "source_id": "Source ID (max 4 chars)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot reach the device. Check IP/port. Note: MTX accepts only 1 simultaneous connection."
+    },
+    "abort": {
+      "already_configured": "Device is already configured"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "connection": {
+        "name": "Connection",
+        "state": {
+          "connected": "Connected",
+          "disconnected": "Disconnected"
+        }
+      }
+    }
+  }
+}
