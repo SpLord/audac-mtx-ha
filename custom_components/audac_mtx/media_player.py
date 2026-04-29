@@ -38,7 +38,7 @@ class AudacZone(AudacEntity, MediaPlayerEntity):
         | MediaPlayerEntityFeature.VOLUME_MUTE
         | MediaPlayerEntityFeature.SELECT_SOURCE
     )
-    _attr_source_list = [v for k, v in SOURCES.items() if k > 0]
+    _attr_source_list = list(SOURCES.values())  # includes "None" (idx 0) so HA can render an unrouted zone
 
     def __init__(self, coordinator: AudacCoordinator, zone: int) -> None:
         super().__init__(coordinator)
