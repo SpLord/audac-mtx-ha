@@ -9,5 +9,5 @@
   "issue_tracker": "https://github.com/SpLord/audac-mtx-ha/issues",
   "loggers": ["custom_components.audac_mtx"],
   "requirements": [],
-  "version": "0.5.1"
+  "version": "0.5.2"
 }
