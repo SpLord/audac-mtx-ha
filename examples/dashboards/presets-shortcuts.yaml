@@ -1,0 +1,127 @@
+################################################################################
+# AUDAC MTX — Routing presets via Shortcut cards (Home Assistant 2026.5+)
+#
+# One-tap shortcuts to route or mute every zone at once.
+# Each Shortcut card calls the media_player.* service with all zone
+# entity_ids in a single target list — no helper scripts needed.
+#
+# Adjust entity IDs and source names (`Mic 1`, `Line 3`, …) to match your
+# install. Source names come from the AUDAC firmware and cannot be renamed
+# via the integration; rename them in HA's entity registry only as labels.
+################################################################################
+
+type: grid
+columns: 3
+square: false
+cards:
+  - type: shortcut
+    label: All zones → Mic 1
+    icon: mdi:microphone
+    color: blue
+    tap_action:
+      action: perform-action
+      perform_action: media_player.select_source
+      target:
+        entity_id:
+          - media_player.audac_mtx88_zone_1
+          - media_player.audac_mtx88_zone_2
+          - media_player.audac_mtx88_zone_3
+          - media_player.audac_mtx88_zone_4
+          - media_player.audac_mtx88_zone_5
+          - media_player.audac_mtx88_zone_6
+          - media_player.audac_mtx88_zone_7
+          - media_player.audac_mtx88_zone_8
+      data:
+        source: Mic 1
+
+  - type: shortcut
+    label: All zones → Line 3
+    icon: mdi:music-circle
+    color: teal
+    tap_action:
+      action: perform-action
+      perform_action: media_player.select_source
+      target:
+        entity_id:
+          - media_player.audac_mtx88_zone_1
+          - media_player.audac_mtx88_zone_2
+          - media_player.audac_mtx88_zone_3
+          - media_player.audac_mtx88_zone_4
+          - media_player.audac_mtx88_zone_5
+          - media_player.audac_mtx88_zone_6
+          - media_player.audac_mtx88_zone_7
+          - media_player.audac_mtx88_zone_8
+      data:
+        source: Line 3
+
+  - type: shortcut
+    label: Unroute all
+    description: Sets every zone source to None
+    icon: mdi:volume-variant-off
+    color: grey
+    tap_action:
+      action: perform-action
+      perform_action: media_player.select_source
+      target:
+        entity_id:
+          - media_player.audac_mtx88_zone_1
+          - media_player.audac_mtx88_zone_2
+          - media_player.audac_mtx88_zone_3
+          - media_player.audac_mtx88_zone_4
+          - media_player.audac_mtx88_zone_5
+          - media_player.audac_mtx88_zone_6
+          - media_player.audac_mtx88_zone_7
+          - media_player.audac_mtx88_zone_8
+      data:
+        source: "None"
+
+  - type: shortcut
+    label: Mute all
+    icon: mdi:volume-mute
+    color: red
+    tap_action:
+      action: perform-action
+      perform_action: media_player.volume_mute
+      target:
+        entity_id:
+          - media_player.audac_mtx88_zone_1
+          - media_player.audac_mtx88_zone_2
+          - media_player.audac_mtx88_zone_3
+          - media_player.audac_mtx88_zone_4
+          - media_player.audac_mtx88_zone_5
+          - media_player.audac_mtx88_zone_6
+          - media_player.audac_mtx88_zone_7
+          - media_player.audac_mtx88_zone_8
+      data:
+        is_volume_muted: true
+
+  - type: shortcut
+    label: Unmute all
+    icon: mdi:volume-high
+    color: green
+    tap_action:
+      action: perform-action
+      perform_action: media_player.volume_mute
+      target:
+        entity_id:
+          - media_player.audac_mtx88_zone_1
+          - media_player.audac_mtx88_zone_2
+          - media_player.audac_mtx88_zone_3
+          - media_player.audac_mtx88_zone_4
+          - media_player.audac_mtx88_zone_5
+          - media_player.audac_mtx88_zone_6
+          - media_player.audac_mtx88_zone_7
+          - media_player.audac_mtx88_zone_8
+      data:
+        is_volume_muted: false
+
+  - type: shortcut
+    label: Save settings
+    description: Persists current routing to flash
+    icon: mdi:content-save
+    color: amber
+    tap_action:
+      action: perform-action
+      perform_action: button.press
+      target:
+        entity_id: button.audac_mtx88_save_settings

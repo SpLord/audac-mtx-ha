@@ -2,10 +2,9 @@
 # AUDAC MTX — Zones Overview (Tile-Card 4×2 grid)
 #
 # Copy-paste this YAML into a Lovelace view. Each zone gets a Tile card with:
-#   - Zone name (clickable for full media-player popup)
-#   - Volume slider
+#   - Zone name (clickable for full media-player popup with mute, vol +/-)
+#   - Inline volume slider with mute button
 #   - Source dropdown
-#   - Mute / volume-up / volume-down buttons
 #
 # Adjust the entity IDs to match your install. Default IDs follow this pattern:
 #   media_player.audac_mtx88_zone_1 .. zone_8
@@ -27,7 +26,6 @@ cards:
     features:
       - type: media-player-volume-slider
       - type: media-player-source-select
-      - type: media-player-playback
 
   - type: tile
     entity: media_player.audac_mtx88_zone_2
@@ -40,7 +38,6 @@ cards:
     features:
       - type: media-player-volume-slider
       - type: media-player-source-select
-      - type: media-player-playback
 
   - type: tile
     entity: media_player.audac_mtx88_zone_3
@@ -53,7 +50,6 @@ cards:
     features:
       - type: media-player-volume-slider
       - type: media-player-source-select
-      - type: media-player-playback
 
   - type: tile
     entity: media_player.audac_mtx88_zone_4
@@ -66,7 +62,6 @@ cards:
     features:
       - type: media-player-volume-slider
       - type: media-player-source-select
-      - type: media-player-playback
 
   - type: tile
     entity: media_player.audac_mtx88_zone_5
@@ -79,7 +74,6 @@ cards:
     features:
       - type: media-player-volume-slider
       - type: media-player-source-select
-      - type: media-player-playback
 
   - type: tile
     entity: media_player.audac_mtx88_zone_6
@@ -92,7 +86,6 @@ cards:
     features:
       - type: media-player-volume-slider
       - type: media-player-source-select
-      - type: media-player-playback
 
   - type: tile
     entity: media_player.audac_mtx88_zone_7
@@ -105,7 +98,6 @@ cards:
     features:
       - type: media-player-volume-slider
       - type: media-player-source-select
-      - type: media-player-playback
 
   - type: tile
     entity: media_player.audac_mtx88_zone_8
@@ -118,4 +110,3 @@ cards:
     features:
       - type: media-player-volume-slider
       - type: media-player-source-select
-      - type: media-player-playback

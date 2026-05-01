@@ -71,13 +71,14 @@ The MTX broadcasts an Update frame to every connected client after any state cha
 
 ## Dashboard quickstart
 
-Home Assistant's "Add to Dashboard" button creates basic Tile cards. To get full Tile features (volume slider + source select + playback) for every zone, copy one of the example layouts from [`examples/dashboards/`](examples/dashboards/):
+Home Assistant's "Add to Dashboard" button creates basic Tile cards. To get full Tile features (volume slider + source select) for every zone, copy one of the example layouts from [`examples/dashboards/`](examples/dashboards/):
 
 | File | Layout | Preview |
 |------|--------|---------|
-| `zones-overview.yaml` | 4×2 Tile-card grid with volume slider, source select, mute per zone | ![Zones overview](examples/dashboards/screenshots/zones-overview-desktop.png) |
-| `zone-detail.yaml`    | Single zone with full media-control card + bass/treble sliders     | ![Zone detail](examples/dashboards/screenshots/zone-detail-desktop.png) |
-| `zones-compact-list.yaml` | Vertical list, one row per zone (good for mobile sidebars)   | ![Compact list](examples/dashboards/screenshots/zones-compact-list-desktop.png) |
+| `zones-overview.yaml` | 4×2 Tile-card grid with volume slider + source select per zone | ![Zones overview](examples/dashboards/screenshots/zones-overview-desktop.png) |
+| `zone-detail.yaml`    | Single zone with full media-control card + bass/treble sliders | ![Zone detail](examples/dashboards/screenshots/zone-detail-desktop.png) |
+| `zones-compact-list.yaml` | Vertical list, one row per zone (good for mobile sidebars) | ![Compact list](examples/dashboards/screenshots/zones-compact-list-desktop.png) |
+| `presets-shortcuts.yaml` | One-tap source-routing presets via the new (HA 2026.5) Shortcut card | — |
 
 Open Lovelace, edit the view (pencil icon top-right), choose **Edit raw configuration** (kebab menu), and paste the YAML inside a `views:` entry. Adjust entity IDs to match your install (default pattern: `media_player.audac_mtx88_zone_<n>` or `..._mtx48_zone_<n>`).
 
