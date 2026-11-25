@@ -21,6 +21,10 @@ const CARD_VERSION = (() => {
 
 const SEND_INTERVAL_MS = 200; // max. one volume command per strip while dragging
 const HOLD_AFTER_RELEASE_MS = 1200; // keep the local value until the device echo arrives
+// After an HA restart the frontend reconnects before the integration is set up
+// again — keep retrying (it's a wall tablet nobody reloads).
+const RETRY_MIN_MS = 3000;
+const RETRY_MAX_MS = 30000;
 // Fader scale like a real desk: 0…−60 dB on the upper 85 % of the travel,
 // the rest down to the minimum below. Linear over 100 dB made a 1 cm swipe +25 dB.
 const KNEE_DB = -60;
@@ -62,7 +66,7 @@ const STYLE = `
   .strip {
     flex: 1 1 0; min-width: 76px; display: flex; flex-direction: column; gap: 4px;
     background: rgba(127, 140, 160, 0.10); border-radius: 8px; padding: 6px 4px;
-    position: relative; user-select: none; -webkit-user-select: none;
+    position: relative; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
   }
   .strip.unavailable { opacity: 0.4; pointer-events: none; }
   button { font: inherit; color: inherit; }
@@ -145,6 +149,9 @@ class AudacMixerCard extends HTMLElement {
     this._error = null;
     this._strips = new Map(); // zone → strip refs
     this._vuUnsub = null;
+    this._retryMs = RETRY_MIN_MS;
+    this._retryTimer = null;
+    this._readyConn = null;
     this.attachShadow({ mode: "open" });
   }
 
@@ -160,8 +167,29 @@ class AudacMixerCard extends HTMLElement {
   set hass(hass) {
     const first = !this._hass;
     this._hass = hass;
-    if (first || (!this._layout && !this._loading && !this._error)) this._load();
+    this._watchReconnect(hass.connection);
+    if (first || (!this._layout && !this._loading && !this._retryTimer)) this._load();
     this._update();
+  }
+
+  // HA restarted / websocket came back: the integration may be missing for a while
+  _watchReconnect(conn) {
+    if (!conn || conn === this._readyConn || !conn.addEventListener) return;
+    this._readyConn = conn;
+    conn.addEventListener("ready", () => {
+      this._stopVu();
+      this._retryMs = RETRY_MIN_MS;
+      this._load();
+    });
+  }
+
+  _scheduleRetry() {
+    clearTimeout(this._retryTimer);
+    this._retryTimer = setTimeout(() => {
+      this._retryTimer = null;
+      this._load();
+    }, this._retryMs);
+    this._retryMs = Math.min(RETRY_MAX_MS, this._retryMs * 2);
   }
 
   connectedCallback() {
@@ -170,6 +198,8 @@ class AudacMixerCard extends HTMLElement {
 
   disconnectedCallback() {
     this._stopVu();
+    clearTimeout(this._retryTimer);
+    this._retryTimer = null;
   }
 
   getCardSize() {
@@ -177,7 +207,8 @@ class AudacMixerCard extends HTMLElement {
   }
 
   getGridOptions() {
-    return { columns: "full", min_columns: 6, rows: 8, min_rows: 6 };
+    const height = Number(this._config.height) || 600;
+    return { columns: "full", min_columns: 6, rows: Math.ceil((height + 8) / 64), min_rows: 6 };
   }
 
   static getStubConfig() {
@@ -191,14 +222,21 @@ class AudacMixerCard extends HTMLElement {
     const msg = { type: "audac_mtx/get_layout" };
     if (this._config.entry_id) msg.entry_id = this._config.entry_id;
     try {
-      this._layout = await this._hass.connection.sendMessagePromise(msg);
+      const layout = await this._hass.connection.sendMessagePromise(msg);
+      const changed = JSON.stringify(layout) !== JSON.stringify(this._layout);
+      this._layout = layout;
       this._error = null;
-      this._buildStrips();
+      this._retryMs = RETRY_MIN_MS;
+      if (changed || !this._strips.size) this._buildStrips();
       this._update();
       if (this.isConnected) this._startVu();
     } catch (err) {
-      this._error = (err && err.message) || "AUDAC integration not found";
-      this._renderShell();
+      // keep showing the last layout if we had one; otherwise say what's wrong
+      if (!this._layout) {
+        this._error = `${(err && err.message) || "AUDAC integration not found"} — retrying…`;
+        this._renderShell();
+      }
+      if (this.isConnected) this._scheduleRetry();
     } finally {
       this._loading = false;
     }

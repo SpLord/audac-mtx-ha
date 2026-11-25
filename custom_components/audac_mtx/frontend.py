@@ -32,10 +32,10 @@ async def async_register_frontend(hass: HomeAssistant, version: str) -> None:
     """Register static path, JS module and websocket commands once per HA run."""
     if hass.data.get(_REGISTERED):
         return
-    hass.data[_REGISTERED] = True
     await hass.http.async_register_static_paths(
         [StaticPathConfig(CARD_URL, str(CARD_FILE), True)]
     )
+    hass.data[_REGISTERED] = True  # only after success, so a failed try is repeated
     # The iPad caches the JS hard; the version query forces a reload after updates.
     add_extra_js_url(hass, f"{CARD_URL}?v={version}")
     websocket_api.async_register_command(hass, ws_get_layout)

@@ -21,7 +21,7 @@ The MTX firmware allows **only ONE simultaneous TCP/IP connection** and broadcas
 
 ## Requirements
 
-- Home Assistant 2024.1+
+- Home Assistant 2024.7+
 - AUDAC MTX48, MTX88 or M2 reachable on your LAN (default port 5001)
 - HACS (recommended)
 
