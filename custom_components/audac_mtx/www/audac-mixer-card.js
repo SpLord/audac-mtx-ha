@@ -5,7 +5,7 @@
  *   type: custom:audac-mixer-card
  *   entry_id: <optional, first AUDAC device otherwise>
  *   zones: [1, 2, 3]   # optional subset
- *   height: 600        # optional, px
+ *   height: 600        # optional, px (default: fills a panel view, else 600)
  *
  * Layout and VU come over the websocket (audac_mtx/get_layout, /subscribe_vu);
  * volume, mute, source and tone go through the normal entity services.
@@ -152,7 +152,23 @@ class AudacMixerCard extends HTMLElement {
     this._retryMs = RETRY_MIN_MS;
     this._retryTimer = null;
     this._readyConn = null;
+    this._isPanel = false;
     this.attachShadow({ mode: "open" });
+  }
+
+  // Set by HA's panel view: then the card should fill the screen below the toolbar
+  set isPanel(value) {
+    this._isPanel = !!value;
+    this._applyHeight();
+  }
+
+  _applyHeight() {
+    if (!this._cardEl) return;
+    let height = "";
+    if (this._config.height) height = `${Number(this._config.height)}px`;
+    else if (this._isPanel) height = "max(420px, calc(100vh - var(--header-height, 56px) - 8px))";
+    if (height) this._cardEl.style.setProperty("--mixer-height", height);
+    else this._cardEl.style.removeProperty("--mixer-height");
   }
 
   setConfig(config) {
@@ -294,7 +310,7 @@ class AudacMixerCard extends HTMLElement {
     const style = el("style");
     style.textContent = STYLE;
     const card = el("div", "card");
-    if (this._config.height) card.style.setProperty("--mixer-height", `${Number(this._config.height)}px`);
+    this._cardEl = card;
     const head = el("div", "head");
     this._titleEl = el("div", "title", this._config.title || "AUDAC");
     head.append(this._titleEl, el("div", "ver", `v${CARD_VERSION}`));
@@ -303,6 +319,7 @@ class AudacMixerCard extends HTMLElement {
     else if (!this._layout) this._stripsEl.appendChild(el("div", "msg", "Loading…"));
     card.append(head, this._stripsEl);
     root.replaceChildren(style, card);
+    this._applyHeight();
     this._strips.clear();
   }
 

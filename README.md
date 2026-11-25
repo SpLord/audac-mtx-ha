@@ -98,7 +98,7 @@ Since **v0.7.0** the integration ships a mixer card that looks like the AUDAC ap
 type: custom:audac-mixer-card
 # entry_id: …        only needed with more than one AUDAC device
 # zones: [1, 2, 3]   optional subset
-# height: 600        px, optional
+# height: 600        px, optional (default: full screen in a panel view)
 ```
 
 - No resource to add: the integration serves the JS itself (the URL carries the version, so tablets pick up updates after a reload). The card shows its version in the top-right corner.
