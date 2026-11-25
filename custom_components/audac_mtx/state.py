@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 
+from .xmp import SlotState
+
 
 @dataclass(slots=True)
 class ZoneState:
@@ -43,6 +45,8 @@ class HubState:
     # Names reported by the device (M2 only): zone → name, input → name
     zone_names: dict[int, str] = field(default_factory=dict)
     input_names: dict[int, str] = field(default_factory=dict)
+    # XMP44 only: SourceCon slot → module state
+    slots: dict[int, SlotState] = field(default_factory=dict)
 
     def ensure_zone(self, zone: int) -> ZoneState:
         if zone not in self.zones:

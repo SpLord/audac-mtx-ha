@@ -26,7 +26,8 @@ async def async_setup_entry(hass: "HomeAssistant", entry: "ConfigEntry") -> bool
     )
     from .coordinator import AudacCoordinator
     from .hub import AudacHub
-    from .models import get_profile
+    from .models import MODEL_XMP44, get_profile
+    from .xmp_hub import XmpHub
 
     host: str = entry.data[CONF_HOST]
     port: int = entry.data.get(CONF_PORT, DEFAULT_PORT)
@@ -38,7 +39,10 @@ async def async_setup_entry(hass: "HomeAssistant", entry: "ConfigEntry") -> bool
     if entry.title == legacy_title:
         hass.config_entries.async_update_entry(entry, title=f"AUDAC {model}")
 
-    hub = AudacHub(host=host, port=port, source_id=source_id, profile=profile)
+    if model == MODEL_XMP44:
+        hub = XmpHub(host=host, port=port, source_id=source_id)
+    else:
+        hub = AudacHub(host=host, port=port, source_id=source_id, profile=profile)
     try:
         await hub.async_start()
     except (OSError, TimeoutError) as err:
@@ -56,6 +60,18 @@ async def async_setup_entry(hass: "HomeAssistant", entry: "ConfigEntry") -> bool
             f"AUDAC {model} at {host}:{port} not ready: {hub.state.last_error or 'no names received'}"
         )
 
+    if model == MODEL_XMP44 and not (
+        hub.state.connected
+        and await hub.async_wait_synced(NAME_SYNC_TIMEOUT)
+        and hub.present_slots()
+    ):
+        # One media player per installed module → the slots must be known first
+        reason = hub.state.last_error or (
+            "no modules installed" if hub.modules_known else "no answer to GTPS"
+        )
+        await hub.async_stop()
+        raise ConfigEntryNotReady(f"AUDAC XMP44 at {host}:{port} not ready: {reason}")
+
     fw = await hub.get_firmware()
     if fw:
         hub.state.firmware = fw
@@ -72,19 +88,17 @@ async def async_setup_entry(hass: "HomeAssistant", entry: "ConfigEntry") -> bool
     integration = await async_get_integration(hass, DOMAIN)
     await async_register_frontend(hass, str(integration.version))
 
-    platforms = [Platform.MEDIA_PLAYER, Platform.NUMBER, Platform.SENSOR, Platform.BUTTON]
-    await hass.config_entries.async_forward_entry_setups(entry, platforms)
+    await hass.config_entries.async_forward_entry_setups(entry, _platforms(model))
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
 
 
 async def async_unload_entry(hass: "HomeAssistant", entry: "ConfigEntry") -> bool:
-    from homeassistant.const import Platform
+    from .const import CONF_MODEL, CONF_ZONES, DOMAIN
+    from .models import get_profile
 
-    from .const import DOMAIN
-
-    platforms = [Platform.MEDIA_PLAYER, Platform.NUMBER, Platform.SENSOR, Platform.BUTTON]
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, platforms)
+    model = get_profile(entry.data.get(CONF_MODEL), entry.data.get(CONF_ZONES)).model
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, _platforms(model))
     if unload_ok:
         coordinator = hass.data[DOMAIN].pop(entry.entry_id)
         await coordinator.async_shutdown()
@@ -93,3 +107,14 @@ async def async_unload_entry(hass: "HomeAssistant", entry: "ConfigEntry") -> boo
 
 async def _async_update_listener(hass: "HomeAssistant", entry: "ConfigEntry") -> None:
     await hass.config_entries.async_reload(entry.entry_id)
+
+
+def _platforms(model: str) -> list:
+    from homeassistant.const import Platform
+
+    from .models import MODEL_XMP44
+
+    if model == MODEL_XMP44:
+        # Source player: no tone controls, no SAVE/DEF
+        return [Platform.MEDIA_PLAYER, Platform.SENSOR]
+    return [Platform.MEDIA_PLAYER, Platform.NUMBER, Platform.SENSOR, Platform.BUTTON]

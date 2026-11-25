@@ -25,7 +25,8 @@ async def async_setup_entry(
     ]
     # 10 VU-meter slots (device sends 10 levels, exact mapping per AUDAC docs varies
     # by config — expose all, user can rename / hide what's not needed)
-    items.extend(AudacVuSensor(coordinator, i) for i in range(10))
+    if coordinator.hub.zones:  # matrices only; the XMP44 sends no VU
+        items.extend(AudacVuSensor(coordinator, i) for i in range(10))
     async_add_entities(items)
 
 

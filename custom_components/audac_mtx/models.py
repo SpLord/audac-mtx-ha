@@ -10,6 +10,8 @@ from dataclasses import dataclass
 MODEL_MTX48 = "MTX48"
 MODEL_MTX88 = "MTX88"
 MODEL_M2 = "M2"
+# Audio source player, not a matrix: no zones, slots instead (see xmp.py)
+MODEL_XMP44 = "XMP44"
 
 # MTX inputs are fixed in firmware — no name query exists on the wire.
 _MTX_SOURCES: dict[int, str] = {
@@ -100,6 +102,11 @@ PROFILES: dict[str, ModelProfile] = {
         tone_min=-9, tone_max=9, tone_step=1, max_source_idx=68,
         default_sources=_M2_SOURCES, has_names=True,
     ),
+    MODEL_XMP44: ModelProfile(
+        model=MODEL_XMP44, device_addr="D001", zones=0, vol_max_raw=1,
+        tone_min=0, tone_max=0, tone_step=1, max_source_idx=0,
+        default_sources={}, has_names=False,
+    ),
 }
 
 
@@ -111,5 +118,8 @@ def get_profile(model: str | None, zones: int | None = None) -> ModelProfile:
 
 
 def detect_model(addr: str | None) -> str:
-    """Map the address that answered GSV to a model (MTX48 can't be told apart)."""
-    return MODEL_M2 if addr == PROFILES[MODEL_M2].device_addr else MODEL_MTX88
+    """Map the answering address to a model (MTX48 can't be told apart)."""
+    for model in (MODEL_M2, MODEL_XMP44):
+        if addr == PROFILES[model].device_addr:
+            return model
+    return MODEL_MTX88

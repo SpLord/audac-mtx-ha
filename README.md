@@ -1,13 +1,14 @@
-# AUDAC MTX48/88 & M2 — Home Assistant Integration
+# AUDAC MTX48/88, M2 & XMP44 — Home Assistant Integration
 
-Native Home Assistant integration for the [AUDAC MTX48 and MTX88](https://audac.eu/eu/products/d/mtx88---8-zone-audio-matrix) multi-zone audio matrices and the **AUDAC M2** multimedia audio mixer, controlled over their TCP/IP protocol on port 5001.
+Native Home Assistant integration for the [AUDAC MTX48 and MTX88](https://audac.eu/eu/products/d/mtx88---8-zone-audio-matrix) multi-zone audio matrices, the **AUDAC M2** multimedia audio mixer and the **AUDAC XMP44** modular audio player, controlled over their TCP/IP protocol on port 5001.
 
 ## Features
 
 - **Per-zone media-player entity**: volume, volume-step (3 dB), mute, source select
 - **Bass / treble controls** (number entities; MTX -14 to +14 dB in 2 dB steps, M2 -9 to +9 dB in 1 dB steps)
 - **M2: zone and input names from the device** — outputs and sources show the names configured in the M2 web UI
-- **Model auto-detection** in the config flow (M2 vs. MTX)
+- **Network search and auto-detection** in the config flow (MTX, M2, XMP44)
+- **XMP44: one media player per SourceCon module** (play/pause/next, now playing, output gain, tuner presets / radio favourites as sources)
 - **VU-meter sensors** (10 levels, disabled by default)
 - **Save settings & factory-reset** buttons
 - **Connection / firmware diagnostics**
@@ -22,7 +23,7 @@ The MTX firmware allows **only ONE simultaneous TCP/IP connection** and broadcas
 ## Requirements
 
 - Home Assistant 2024.7+
-- AUDAC MTX48, MTX88 or M2 reachable on your LAN (default port 5001)
+- AUDAC MTX48, MTX88, M2 or XMP44 reachable on your LAN (default port 5001)
 - HACS (recommended)
 
 ## Installation
@@ -33,7 +34,7 @@ The MTX firmware allows **only ONE simultaneous TCP/IP connection** and broadcas
 2. URL: `https://github.com/SpLord/audac-mtx-ha`, Category: **Integration**
 3. Install **AUDAC MTX**, restart Home Assistant
 4. Settings → Devices & Services → **+ Add Integration** → search **AUDAC MTX**
-5. Enter the device IP and port (5001); leave the model on **auto**
+5. Choose **Search the network** (finds MTX, M2 and XMP44 in Home Assistant's own /24 network) or **Enter IP address**; leave the model on **auto**
 
 ### Manual
 
@@ -45,7 +46,7 @@ Copy `custom_components/audac_mtx/` into your `<config>/custom_components/` dire
 |------------|---------|------------------------------------------------|
 | Host       | —       | IP or hostname of the device                   |
 | Port       | 5001    | TCP control port                               |
-| Model      | auto    | `auto`, `M2`, `MTX88`, `MTX48` — auto asks the device (GSV on `M001` / `X001`). An MTX is detected as MTX88; choose MTX48 explicitly for 4 zones |
+| Model      | auto    | `auto`, `M2`, `MTX88`, `MTX48`, `XMP44` — auto asks the device (GSV on `M001` / `X001`, GTPS on `D001`). An MTX is detected as MTX88; choose MTX48 explicitly for 4 zones |
 | Source ID  | HA      | 1-4 chars, identifies us in the broadcast log  |
 
 Entries created with earlier versions keep working as MTX (zone count from the old setting).
@@ -60,6 +61,28 @@ Entries created with earlier versions keep working as MTX (zone count from the o
 | button        | 2           | Save settings, Factory reset (disabled)     |
 
 VU sensors and the Last-Error / Firmware diagnostic sensors are **disabled by default** — enable them in the entity registry if you need them.
+
+**XMP44:** one media player per installed module (`media_player.audac_xmp44_slot_1_mmp40` …) plus the connection, firmware and last-error sensors. No tone controls, VU or buttons — the XMP44 has none.
+
+## Discovery
+
+AUDAC devices announce nothing on the network, so there are two ways in:
+
+- **Search the network** (config flow): tries TCP 5001 on every address of the /24 networks Home Assistant is attached to and asks whoever answers which AUDAC model it is. Takes a few seconds. Devices that are already configured are skipped, and a device that is currently connected to the AUDAC app cannot answer (one connection at a time).
+- **DHCP discovery**: Home Assistant offers "Discovered: AUDAC …" when a device with the MAC prefix `54:10:EC` shows up (seen on the M2). That prefix belongs to the network chip vendor, not to AUDAC, so the flow first checks port 5001 and silently drops anything that is not an AUDAC.
+
+## XMP44
+
+Built from AUDAC's *Audio sources commands manual* (address `D001`). Modules are read with `GTPS` on every connect; per slot the integration supports:
+
+| Module | Code | In Home Assistant |
+|--------|------|-------------------|
+| MMP40 media player, BMP40 Bluetooth | 3, 8 | play/pause/stop/next/previous, title/artist/album, position |
+| IMP40 internet radio | 4 | station + track, favourites as source list |
+| DMP40 DAB/FM, TMP40 FM | 1, 2 | station name, frequency, presets 1–10 as source list |
+| FMP40 voice file player | 6 | output gain only |
+
+Volume is the module's output gain (wire `0` = +8 dB, `8` = 0 dB, ▲/▼ in 3 dB steps). The lower end of the range depends on the module and is assumed to be −70 dB until checked on a real device. Unverified as well: the manual shows the play-status answer without a slot number; with two player modules an unnumbered status goes to the slot that was last controlled.
 
 ## Protocol notes
 
@@ -137,7 +160,7 @@ pip install pytest pytest-asyncio pytest-timeout voluptuous
 pytest tests
 ```
 
-Tests use in-process mock MTX and M2 servers — no hardware required.
+Tests use in-process mock MTX, M2 and XMP44 servers — no hardware required. The XMP44 support has not been tested on a real device yet.
 
 ## License
 

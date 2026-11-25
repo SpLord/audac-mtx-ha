@@ -1,22 +1,42 @@
 {
   "config": {
+    "flow_title": "{name}",
     "step": {
       "user": {
-        "title": "AUDAC MTX / M2",
-        "description": "{hint}",
+        "title": "AUDAC MTX / M2 / XMP44",
+        "menu_options": {
+          "scan": "Search the network",
+          "manual": "Enter IP address"
+        }
+      },
+      "scan": {
+        "title": "AUDAC devices found",
+        "data": {
+          "device": "Device"
+        }
+      },
+      "manual": {
+        "title": "AUDAC MTX / M2 / XMP44",
+        "description": "Default port 5001. Model 'auto' detects MTX, M2 and XMP44 (an MTX is assumed to be an MTX88, pick MTX48 for 4 zones).",
         "data": {
           "host": "Host / IP",
           "port": "TCP port",
-          "model": "Model (auto = detect M2 / MTX)",
+          "model": "Model (auto = detect)",
           "source_id": "Source ID (max 4 chars)"
         }
+      },
+      "discovery_confirm": {
+        "title": "AUDAC {model} found",
+        "description": "Add the AUDAC {model} at {host}?"
       }
     },
     "error": {
-      "cannot_connect": "Cannot reach the device. Check IP/port. Note: the MTX accepts only 1 simultaneous connection."
+      "cannot_connect": "Cannot reach the device. Check IP/port. Note: AUDAC devices accept only 1 simultaneous connection.",
+      "no_devices_found": "No AUDAC device answered on port 5001 in the local network. Enter the IP address instead (a device already connected to another app does not answer)."
     },
     "abort": {
-      "already_configured": "Device is already configured"
+      "already_configured": "Device is already configured",
+      "not_audac_device": "The discovered device is not an AUDAC device"
     }
   },
   "entity": {

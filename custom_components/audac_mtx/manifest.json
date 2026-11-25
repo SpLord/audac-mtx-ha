@@ -1,6 +1,6 @@
 {
   "domain": "audac_mtx",
-  "name": "AUDAC MTX / M2",
+  "name": "AUDAC MTX / M2 / XMP44",
   "codeowners": [
     "@SpLord"
   ],
@@ -8,7 +8,13 @@
   "dependencies": [
     "frontend",
     "http",
+    "network",
     "websocket_api"
+  ],
+  "dhcp": [
+    {
+      "macaddress": "5410EC*"
+    }
   ],
   "documentation": "https://github.com/SpLord/audac-mtx-ha",
   "integration_type": "device",
@@ -18,5 +24,5 @@
     "custom_components.audac_mtx"
   ],
   "requirements": [],
-  "version": "0.7.1"
+  "version": "0.8.0"
 }

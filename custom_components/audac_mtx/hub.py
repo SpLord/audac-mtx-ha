@@ -497,6 +497,7 @@ class AudacHub:
         args: str,
         *,
         expect_value: bool = False,
+        timeout: float = TIMEOUT,
     ) -> Frame | None:
         """Send a frame and wait for ack (or value-response). Reconnects if needed."""
         if self._writer is None:
@@ -529,7 +530,7 @@ class AudacHub:
                 raise
 
         try:
-            result = await asyncio.wait_for(fut, TIMEOUT)
+            result = await asyncio.wait_for(fut, timeout)
         except asyncio.TimeoutError:
             self._pending.pop(key, None)
             _LOGGER.debug("Timeout awaiting ack for %s", command)

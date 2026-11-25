@@ -1,0 +1,53 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "title": "AUDAC MTX / M2 / XMP44",
+        "menu_options": {
+          "scan": "Netzwerk durchsuchen",
+          "manual": "IP-Adresse eingeben"
+        }
+      },
+      "scan": {
+        "title": "Gefundene AUDAC-Geräte",
+        "data": {
+          "device": "Gerät"
+        }
+      },
+      "manual": {
+        "title": "AUDAC MTX / M2 / XMP44",
+        "description": "Standard-Port 5001. Modell 'auto' erkennt MTX, M2 und XMP44 (ein MTX gilt als MTX88, für 4 Zonen MTX48 wählen).",
+        "data": {
+          "host": "Host / IP",
+          "port": "TCP-Port",
+          "model": "Modell (auto = erkennen)",
+          "source_id": "Absender-Kennung (max. 4 Zeichen)"
+        }
+      },
+      "discovery_confirm": {
+        "title": "AUDAC {model} gefunden",
+        "description": "AUDAC {model} unter {host} hinzufügen?"
+      }
+    },
+    "error": {
+      "cannot_connect": "Gerät nicht erreichbar. IP/Port prüfen. Hinweis: AUDAC-Geräte erlauben nur eine Verbindung gleichzeitig.",
+      "no_devices_found": "Im lokalen Netz hat kein AUDAC-Gerät auf Port 5001 geantwortet. Bitte die IP-Adresse eingeben (ein Gerät, das gerade mit einer anderen App verbunden ist, antwortet nicht)."
+    },
+    "abort": {
+      "already_configured": "Gerät ist bereits eingerichtet",
+      "not_audac_device": "Das gefundene Gerät ist kein AUDAC-Gerät"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "connection": {
+        "name": "Verbindung",
+        "state": {
+          "connected": "Verbunden",
+          "disconnected": "Getrennt"
+        }
+      }
+    }
+  }
+}

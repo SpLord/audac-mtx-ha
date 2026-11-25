@@ -43,11 +43,12 @@ async def async_register_frontend(hass: HomeAssistant, version: str) -> None:
 
 
 def _coordinator(hass: HomeAssistant, entry_id: str | None) -> Any:
-    """Coordinator for entry_id, or the first AUDAC entry when none is given."""
+    """Coordinator for entry_id, or the first matrix (M2/MTX) when none is given."""
     entries = hass.data.get(DOMAIN, {})
     if entry_id:
         return entries.get(entry_id)
-    return next(iter(entries.values()), None)
+    # An XMP44 has no zones and would give the mixer card an empty desk
+    return next((c for c in entries.values() if c.hub.zones), None)
 
 
 @websocket_api.websocket_command(

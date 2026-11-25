@@ -15,6 +15,7 @@ from .const import DOMAIN
 from .coordinator import AudacCoordinator
 from .entity import AudacEntity
 from .mixer import volume_db
+from .models import MODEL_XMP44
 
 
 async def async_setup_entry(
@@ -23,6 +24,11 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: AudacCoordinator = hass.data[DOMAIN][entry.entry_id]
+    if coordinator.hub.profile.model == MODEL_XMP44:
+        from .xmp_player import XmpSlotPlayer
+
+        async_add_entities(XmpSlotPlayer(coordinator, s) for s in coordinator.hub.present_slots())
+        return
     zones = coordinator.hub.zones
     async_add_entities(AudacZone(coordinator, z) for z in range(1, zones + 1))
 
