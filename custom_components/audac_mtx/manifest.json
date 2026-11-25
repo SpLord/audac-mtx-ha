@@ -1,6 +1,6 @@
 {
   "domain": "audac_mtx",
-  "name": "AUDAC MTX",
+  "name": "AUDAC MTX / M2",
   "codeowners": ["@SpLord"],
   "config_flow": true,
   "documentation": "https://github.com/SpLord/audac-mtx-ha",
@@ -9,5 +9,5 @@
   "issue_tracker": "https://github.com/SpLord/audac-mtx-ha/issues",
   "loggers": ["custom_components.audac_mtx"],
   "requirements": [],
-  "version": "0.5.2"
+  "version": "0.6.0"
 }

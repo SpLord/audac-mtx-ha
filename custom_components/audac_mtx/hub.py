@@ -1,4 +1,6 @@
-"""AUDAC MTX hub: persistent TCP connection, frame dispatcher, state cache.
+"""AUDAC MTX/M2 hub: persistent TCP connection, frame dispatcher, state cache.
+
+Model differences (address, value ranges, names) come from a ModelProfile.
 
 The MTX accepts MAX 1 simultaneous TCP/IP connection. A second client
 (web-UI, AUDAC Touch app, wall-panel via RJ45-bus) will lock us out —
@@ -12,21 +14,38 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import Callable
-from typing import Any
 
 from .const import (
-    BROADCAST,
-    DEVICE_ADDR,
     EOL,
     RECONNECT_BASE,
     RECONNECT_MAX,
     TIMEOUT,
 )
-from .protocol import Frame, build_frame, parse_frame, split_update_command
-from .state import HubState
+from .models import MODEL_M2, ModelProfile, get_profile
+from .protocol import (
+    Frame,
+    build_frame,
+    decode_line,
+    parse_frame,
+    parse_signed,
+    parse_vu,
+    reply_command,
+    split_update_command,
+)
+from .state import HubState, ZoneState
 
 _LOGGER = logging.getLogger(__name__)
+
+# M2 streams ~10 VU frames per second; don't wake every entity that often.
+VU_NOTIFY_INTERVAL = 1.0
+# Ack argument the M2 sends instead of "+" when its DSP load is above 90 %.
+ACK_OVERLOAD = "L"
+
+
+class AudacCommandRejected(Exception):
+    """The device refused a command (M2: DSP load above 90 %)."""
 
 
 class AudacHub:
@@ -36,17 +55,23 @@ class AudacHub:
         self,
         host: str,
         port: int,
-        zones: int,
+        zones: int | None = None,
         source_id: str = "HA",
+        profile: ModelProfile | None = None,
     ) -> None:
         self.host = host
         self.port = port
-        self.zones = zones
+        self.profile = profile or get_profile(None, zones)
+        self.zones = zones or self.profile.zones
         self.source_id = source_id
 
         self.state = HubState()
-        for z in range(1, zones + 1):
-            self.state.ensure_zone(z)
+        neutral = self.profile.tone_neutral_wire
+        for z in range(1, self.zones + 1):
+            zs = self.state.ensure_zone(z)
+            self.state.zones[z] = zs.with_bass(neutral).with_treble(neutral)
+        self._synced = asyncio.Event()
+        self._last_vu_notify = 0.0
 
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
@@ -119,10 +144,62 @@ class AudacHub:
                 fut.cancel()
         self._pending.clear()
 
+    async def async_wait_synced(self, timeout: float) -> bool:
+        """Wait until the first initial sync finished (names known on M2)."""
+        try:
+            await asyncio.wait_for(self._synced.wait(), timeout)
+        except asyncio.TimeoutError:
+            return False
+        return True
+
+    # ----- names -----
+    def source_name(self, idx: int) -> str:
+        """Display name of an input index (device name on M2)."""
+        if idx == 0:
+            return "None"
+        name = self.state.input_names.get(idx)
+        if name:
+            return name
+        if idx in self.profile.default_sources:
+            return self.profile.default_sources[idx]
+        if 51 <= idx <= 58:
+            return f"Scene {idx - 50}"
+        if 61 <= idx <= 68:
+            return f"Global scene {idx - 60}"
+        return f"Input {idx}"
+
+    def source_map(self, current: int | None = None) -> dict[int, str]:
+        """Selectable inputs → unique display names (HA needs unique options).
+
+        The currently routed input is included even if it is not selectable
+        (e.g. a prio input or scene on the M2), so the UI can show it.
+        """
+        indices = list(self.profile.default_sources)
+        if current is not None and current not in indices:
+            indices.append(current)
+        result: dict[int, str] = {}
+        seen: set[str] = set()
+        for idx in indices:
+            name = self.source_name(idx)
+            if name in seen:
+                name = f"{name} ({idx})"
+            seen.add(name)
+            result[idx] = name
+        return result
+
+    def zone_name(self, zone: int) -> str:
+        return self.state.zone_names.get(zone) or f"Zone {zone}"
+
     # ----- commands -----
+    def _zone_cmd(self, prefix: str, zone: int) -> str:
+        # MTX takes SV1/SR1, M2 manual uses SV02 — both pad where documented
+        if self.profile.model == MODEL_M2:
+            return f"{prefix}{zone:02d}"
+        return f"{prefix}{zone}"
+
     async def set_volume_pct(self, zone: int, percent: int) -> None:
-        raw = round((100 - max(0, min(100, percent))) * 70 / 100)
-        await self._send_and_ack(f"SV{zone}", str(raw))
+        raw = self.profile.volume_to_wire(max(0, min(100, percent)) / 100)
+        await self._send_and_ack(self._zone_cmd("SV", zone), str(raw))
 
     async def volume_up(self, zone: int) -> None:
         await self._send_and_ack(f"SVU{zone:02d}", "0")
@@ -131,8 +208,8 @@ class AudacHub:
         await self._send_and_ack(f"SVD{zone:02d}", "0")
 
     async def set_source(self, zone: int, idx: int) -> None:
-        idx = max(0, min(8, int(idx)))
-        await self._send_and_ack(f"SR{zone}", str(idx))
+        idx = self.profile.clamp_source(idx)
+        await self._send_and_ack(self._zone_cmd("SR", zone), str(idx))
 
     async def source_up(self, zone: int) -> None:
         await self._send_and_ack(f"SRU{zone:02d}", "0")
@@ -143,12 +220,12 @@ class AudacHub:
     async def set_mute(self, zone: int, muted: bool) -> None:
         await self._send_and_ack(f"SM{zone:02d}", "1" if muted else "0")
 
-    async def set_bass_raw(self, zone: int, raw: int) -> None:
-        raw = max(0, min(14, int(raw)))
+    async def set_bass_db(self, zone: int, db: float) -> None:
+        raw = self.profile.tone_db_to_wire(db)
         await self._send_and_ack(f"SB{zone:02d}", str(raw))
 
-    async def set_treble_raw(self, zone: int, raw: int) -> None:
-        raw = max(0, min(14, int(raw)))
+    async def set_treble_db(self, zone: int, db: float) -> None:
+        raw = self.profile.tone_db_to_wire(db)
         await self._send_and_ack(f"ST{zone:02d}", str(raw))
 
     async def save_settings(self) -> None:
@@ -166,24 +243,35 @@ class AudacHub:
 
     async def initial_sync(self) -> None:
         """Pull complete state once after connect. Device pushes updates afterwards."""
-        for cmd in ("GVALL", "GRALL", "GMALL"):
+        try:
+            await self._initial_sync()
+        finally:
+            self._synced.set()
+
+    async def _initial_sync(self) -> None:
+        m2 = self.profile.model == MODEL_M2
+        head = ("GZN", "GIN") if m2 else ()
+        for cmd in (*head, "GVALL", "GRALL", "GMALL"):
             try:
                 await self._send_and_ack(cmd, "0", expect_value=True)
-            except (asyncio.TimeoutError, ConnectionError):
+            except (asyncio.TimeoutError, ConnectionError, AudacCommandRejected):
                 _LOGGER.warning("Initial sync %s failed", cmd)
-        # Bass/Treble per zone (no GBALL/GTALL in the protocol)
+        # Bass/Treble per zone (no GBALL/GTALL in the protocol). The M2's GZI
+        # fans out into ~10 frames incl. all names, so ask GB/GT directly there.
+        per_zone = ("GB", "GT") if m2 else ("GZI",)
         for z in range(1, self.zones + 1):
-            try:
-                await self._send_and_ack(f"GZI{z:02d}", "0", expect_value=True)
-            except (asyncio.TimeoutError, ConnectionError):
-                pass
+            for prefix in per_zone:
+                try:
+                    await self._send_and_ack(f"{prefix}{z:02d}", "0", expect_value=True)
+                except (asyncio.TimeoutError, ConnectionError, AudacCommandRejected):
+                    pass
 
     # ------------------------------------------------------------ internal
     async def _connect(self) -> None:
         async with self._connect_lock:
             if self._writer is not None:
                 return
-            _LOGGER.info("Connecting to AUDAC MTX %s:%s", self.host, self.port)
+            _LOGGER.info("Connecting to AUDAC %s %s:%s", self.profile.model, self.host, self.port)
             self._reader, self._writer = await asyncio.wait_for(
                 asyncio.open_connection(self.host, self.port), TIMEOUT
             )
@@ -224,7 +312,7 @@ class AudacHub:
             try:
                 line = await self._reader.readuntil(EOL)
             except asyncio.IncompleteReadError:
-                _LOGGER.info("MTX closed connection (likely another client connected)")
+                _LOGGER.info("AUDAC closed connection (likely another client connected)")
                 self.state.last_error = "remote closed (lockout?)"
                 await self._close_socket()
                 await self._backoff()
@@ -234,7 +322,7 @@ class AudacHub:
                 await self._close_socket()
                 await self._backoff()
                 continue
-            text = line.decode("ascii", errors="replace")
+            text = decode_line(line)
             frame = parse_frame(text)
             if frame is None:
                 continue
@@ -285,24 +373,33 @@ class AudacHub:
         args = frame.args
 
         if cmd == "VU":
-            try:
-                self.state.vu_levels = [int(x) for x in args.split("^") if x.isdigit()]
-            except ValueError:
-                pass
-            self._notify()
+            self.state.vu_levels = parse_vu(args)
+            now = time.monotonic()
+            if now - self._last_vu_notify >= VU_NOTIFY_INTERVAL:
+                self._last_vu_notify = now
+                self._notify()
             return
 
-        # GVALL response is "VALL" with args 40^40^20^...
+        if cmd in ("ZN", "IN"):
+            self._update_names(cmd, args)
+            return
+
+        p = self.profile
+        # GVALL response is "VALL" with args 40^40^20^... (M2: 150 = output off)
         if cmd == "VALL":
             for i, part in enumerate(args.split("^"), start=1):
                 if part.isdigit() and i <= self.zones:
-                    self.state.zones[i] = self.state.ensure_zone(i).with_volume(int(part))
+                    self.state.zones[i] = self.state.ensure_zone(i).with_volume(
+                        p.clamp_volume_raw(int(part))
+                    )
             self._notify()
             return
         if cmd == "RALL":
             for i, part in enumerate(args.split("^"), start=1):
                 if part.isdigit() and i <= self.zones:
-                    self.state.zones[i] = self.state.ensure_zone(i).with_source(int(part))
+                    self.state.zones[i] = self.state.ensure_zone(i).with_source(
+                        p.clamp_source(int(part))
+                    )
             self._notify()
             return
         if cmd == "MALL":
@@ -320,33 +417,54 @@ class AudacHub:
         if zone < 1 or zone > self.zones:
             return
         z = self.state.ensure_zone(zone)
+        updated = self._apply_zone_update(z, kind, args)
+        if updated is None:
+            return
+        self.state.zones[zone] = updated
+        self._notify()
+
+    def _apply_zone_update(self, z: ZoneState, kind: str, args: str) -> ZoneState | None:
+        p = self.profile
         if kind == "ZI":
             try:
                 vol_s, route_s, mute_s, bass_s, treble_s = args.split("^")
-                z = (
-                    z.with_volume(int(vol_s))
-                    .with_source(int(route_s))
+                return (
+                    z.with_volume(p.clamp_volume_raw(int(vol_s)))
+                    .with_source(p.clamp_source(int(route_s)))
                     .with_mute(mute_s == "1")
                     .with_bass(int(bass_s))
                     .with_treble(int(treble_s))
                 )
-            except (ValueError, KeyError):
-                return
-        elif kind == "V" and args.isdigit():
-            z = z.with_volume(int(args))
-        elif kind == "R" and args.isdigit():
-            z = z.with_source(int(args))
-        elif kind == "M":
-            z = z.with_mute(args == "1")
-        elif kind == "B" and args.isdigit():
-            z = z.with_bass(int(args))
-        elif kind == "T" and args.isdigit():
-            z = z.with_treble(int(args))
-        else:
-            return
-        self.state.zones[zone] = z
-        self._notify()
+            except ValueError:
+                return None
+        # M2 routing updates are "000^009": the last field is the input
+        value = parse_signed(args.split("^")[-1])
+        if value is None:
+            return None
+        if kind == "V":
+            return z.with_volume(p.clamp_volume_raw(value))
+        if kind == "R":
+            return z.with_source(p.clamp_source(value))
+        if kind == "M":
+            return z.with_mute(value == 1)
+        if kind == "B":
+            return z.with_bass(value)
+        if kind == "T":
+            return z.with_treble(value)
+        return None
 
+    def _update_names(self, cmd: str, args: str) -> None:
+        names = [n.strip() for n in args.split("^")]
+        if cmd == "ZN":
+            # Only the first entries are real outputs; the rest are WP/fiber
+            self.state.zone_names = {
+                i: n for i, n in enumerate(names[: self.zones], start=1) if n
+            }
+        else:
+            self.state.input_names = {
+                i: n for i, n in enumerate(names, start=1) if n and n != "NOT USED"
+            }
+        self._notify()
     def _notify(self) -> None:
         for cb in list(self._listeners):
             try:
@@ -368,7 +486,7 @@ class AudacHub:
 
         loop = asyncio.get_running_loop()
         fut: asyncio.Future[Frame] = loop.create_future()
-        key = self._ack_key(command, args)
+        key = self._ack_key(reply_command(command) if expect_value else command, args)
         # Replace any stale future under the same key
         old = self._pending.pop(key, None)
         if old and not old.done():
@@ -377,7 +495,7 @@ class AudacHub:
 
         async with self._send_lock:
             payload = build_frame(
-                destination=DEVICE_ADDR,
+                destination=self.profile.device_addr,
                 source=self.source_id,
                 command=command,
                 args=args,
@@ -393,8 +511,10 @@ class AudacHub:
 
         try:
             result = await asyncio.wait_for(fut, TIMEOUT)
-            return result
         except asyncio.TimeoutError:
             self._pending.pop(key, None)
             _LOGGER.debug("Timeout awaiting ack for %s", command)
             raise
+        if not expect_value and result.args == ACK_OVERLOAD:
+            raise AudacCommandRejected(f"{command} rejected: device load above 90 %")
+        return result

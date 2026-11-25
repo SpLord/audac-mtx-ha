@@ -34,7 +34,7 @@ class AudacSaveButton(AudacEntity, ButtonEntity):
         self._attr_unique_id = f"{coordinator.entry.entry_id}_save"
 
     async def async_press(self) -> None:
-        await self.coordinator.hub.save_settings()
+        await self._command(self.coordinator.hub.save_settings())
 
 
 class AudacResetButton(AudacEntity, ButtonEntity):
@@ -49,4 +49,4 @@ class AudacResetButton(AudacEntity, ButtonEntity):
         self._attr_unique_id = f"{coordinator.entry.entry_id}_reset"
 
     async def async_press(self) -> None:
-        await self.coordinator.hub.factory_reset()
+        await self._command(self.coordinator.hub.factory_reset())

@@ -1,9 +1,9 @@
-"""AUDAC MTX wire protocol — frame parsing and building.
+"""AUDAC MTX/M2 wire protocol — frame parsing and building.
 
 Wire format (ASCII, terminated with CRLF):
     #|destination|source|command|args|checksum|<CR><LF>
 
-- destination/source: 4-char ID (e.g. "X001", "web", "HA", "ALL")
+- destination/source: 4-char ID (e.g. "X001" MTX, "M001" M2, "web", "HA", "ALL")
 - command: e.g. "SV1", "GZI01", "VU", "V01"
 - args: pipe-separated, may contain "^" for sub-fields (e.g. "20^3^0^07^07")
 - checksum: CRC-16 hex OR literal "U" (always accepted as substitute)
@@ -30,7 +30,8 @@ class Frame:
 
     @property
     def is_ack(self) -> bool:
-        return self.args == "+"
+        # M2 answers "L" instead of "+" when it rejects a command (load > 90 %)
+        return self.args in ("+", "L")
 
     @property
     def is_broadcast(self) -> bool:
@@ -41,11 +42,24 @@ class Frame:
         return self.command == "VU"
 
 
+def decode_line(raw: bytes) -> str:
+    """Device names may contain umlauts: try UTF-8, fall back to Latin-1."""
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("latin-1")
+
+
 def parse_frame(line: str) -> Frame | None:
     """Parse a single line into a Frame. Returns None if malformed."""
-    line = line.strip().strip("\r\n")
-    if not line.startswith("#"):
+    # M2 terminates every TCP answer with 0x00, which ends up in front of the
+    # next line. A frame can also be cut off by the next one ("#|ALL#|ALL|…"),
+    # so the last start symbol wins ("#" is never allowed inside a field).
+    line = line.replace("\x00", "").strip()
+    start = line.rfind("#")
+    if start < 0:
         return None
+    line = line[start:]
     parts = line[1:].split("|")
     # Expected layout: |dest|src|cmd|args|crc|  → 5 fields after stripping #
     # Some frames may have empty trailing field after final |
@@ -103,3 +117,27 @@ def split_update_command(cmd: str) -> tuple[str, int] | None:
             if tail.isdigit():
                 return (prefix, int(tail))
     return None
+
+
+def reply_command(command: str) -> str:
+    """Command name of the value reply to a get-command (GVALL → VALL, GB01 → B01).
+
+    Get-commands are answered with the value under the command name minus the
+    leading "G", not with a "+" ack — so that is what we wait for.
+    """
+    return command[1:] if command.startswith("G") else command
+
+
+def parse_signed(value: str) -> int | None:
+    """Parse "007", "-03" or "+3"; None if not a number."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def parse_vu(args: str) -> list[int]:
+    """MTX sends "003^000^…"; M2 sends a run of 2-digit levels without separators."""
+    if "^" in args:
+        return [int(x) for x in args.split("^") if x.isdigit()]
+    return [int(args[i:i + 2]) for i in range(0, len(args) - 1, 2) if args[i:i + 2].isdigit()]

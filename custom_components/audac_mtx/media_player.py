@@ -1,4 +1,4 @@
-"""Media-Player entity per MTX zone."""
+"""Media-Player entity per zone (MTX zone / M2 output)."""
 from __future__ import annotations
 
 from homeassistant.components.media_player import (
@@ -11,12 +11,9 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, SOURCES
+from .const import DOMAIN
 from .coordinator import AudacCoordinator
 from .entity import AudacEntity
-from .protocol import wire_to_volume
-
-_NAME_TO_IDX = {v: k for k, v in SOURCES.items()}
 
 
 async def async_setup_entry(
@@ -38,14 +35,26 @@ class AudacZone(AudacEntity, MediaPlayerEntity):
         | MediaPlayerEntityFeature.VOLUME_MUTE
         | MediaPlayerEntityFeature.SELECT_SOURCE
     )
-    _attr_source_list = list(SOURCES.values())  # includes "None" (idx 0) so HA can render an unrouted zone
 
     def __init__(self, coordinator: AudacCoordinator, zone: int) -> None:
         super().__init__(coordinator)
         self.zone = zone
         self._attr_unique_id = f"{coordinator.entry.entry_id}_zone_{zone}"
         self._attr_translation_key = "zone"
-        self._attr_name = f"Zone {zone}"
+
+    @property
+    def name(self) -> str:
+        # M2: output name from the device (GZN); MTX: "Zone n"
+        return self.coordinator.hub.zone_name(self.zone)
+
+    def _source_map(self) -> dict[int, str]:
+        zs = self._zone_state
+        return self.coordinator.hub.source_map(zs.source if zs else None)
+
+    @property
+    def source_list(self) -> list[str]:
+        # includes "None" (idx 0) so HA can render an unrouted zone
+        return list(self._source_map().values())
 
     @property
     def state(self) -> MediaPlayerState:
@@ -60,7 +69,7 @@ class AudacZone(AudacEntity, MediaPlayerEntity):
     @property
     def volume_level(self) -> float | None:
         zs = self._zone_state
-        return wire_to_volume(zs.volume_raw) if zs else None
+        return self.coordinator.hub.profile.wire_to_volume(zs.volume_raw) if zs else None
 
     @property
     def is_volume_muted(self) -> bool | None:
@@ -70,22 +79,22 @@ class AudacZone(AudacEntity, MediaPlayerEntity):
     @property
     def source(self) -> str | None:
         zs = self._zone_state
-        return SOURCES.get(zs.source) if zs else None
+        return self._source_map().get(zs.source) if zs else None
 
     async def async_set_volume_level(self, volume: float) -> None:
-        await self.coordinator.hub.set_volume_pct(self.zone, int(round(volume * 100)))
+        await self._command(self.coordinator.hub.set_volume_pct(self.zone, int(round(volume * 100))))
 
     async def async_volume_up(self) -> None:
-        await self.coordinator.hub.volume_up(self.zone)
+        await self._command(self.coordinator.hub.volume_up(self.zone))
 
     async def async_volume_down(self) -> None:
-        await self.coordinator.hub.volume_down(self.zone)
+        await self._command(self.coordinator.hub.volume_down(self.zone))
 
     async def async_mute_volume(self, mute: bool) -> None:
-        await self.coordinator.hub.set_mute(self.zone, mute)
+        await self._command(self.coordinator.hub.set_mute(self.zone, mute))
 
     async def async_select_source(self, source: str) -> None:
-        idx = _NAME_TO_IDX.get(source)
+        idx = next((i for i, n in self._source_map().items() if n == source), None)
         if idx is None:
             return
-        await self.coordinator.hub.set_source(self.zone, idx)
+        await self._command(self.coordinator.hub.set_source(self.zone, idx))
