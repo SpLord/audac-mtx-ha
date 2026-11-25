@@ -87,6 +87,8 @@ class AudacHub:
 
         # Listeners called on every state change (HA coordinator wires up here)
         self._listeners: list[Callable[[], None]] = []
+        # VU listeners get every VU frame (mixer card stream, bypasses HA state)
+        self._vu_listeners: list[Callable[[list[int]], None]] = []
 
         self._reconnect_delay = RECONNECT_BASE
 
@@ -98,6 +100,18 @@ class AudacHub:
         def _unsub() -> None:
             try:
                 self._listeners.remove(cb)
+            except ValueError:
+                pass
+
+        return _unsub
+
+    def add_vu_listener(self, cb: Callable[[list[int]], None]) -> Callable[[], None]:
+        """Register a callback fired with the levels of every VU frame. Returns unsubscribe."""
+        self._vu_listeners.append(cb)
+
+        def _unsub() -> None:
+            try:
+                self._vu_listeners.remove(cb)
             except ValueError:
                 pass
 
@@ -374,6 +388,11 @@ class AudacHub:
 
         if cmd == "VU":
             self.state.vu_levels = parse_vu(args)
+            for vu_cb in list(self._vu_listeners):
+                try:
+                    vu_cb(self.state.vu_levels)
+                except Exception:  # noqa: BLE001 — a broken listener must not kill the reader
+                    _LOGGER.exception("VU listener failed")
             now = time.monotonic()
             if now - self._last_vu_notify >= VU_NOTIFY_INTERVAL:
                 self._last_vu_notify = now

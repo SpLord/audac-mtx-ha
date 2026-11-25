@@ -156,3 +156,37 @@ async def test_vu_parsed_as_pairs(m2):
     hub = await _started_hub(m2)
     assert hub.state.vu_levels[:4] == [10, 6, 14, 14]
     await hub.async_stop()
+
+
+async def test_vu_listener_gets_every_frame_and_unsubscribes(m2):
+    hub = await _started_hub(m2)
+    got: list[list[int]] = []
+    unsub = hub.add_vu_listener(got.append)
+    m2.writers[0].write(b"#|ALL|M001|VU|151519192323181700000000000016170000040|52a1|\r\n\x00")
+    await m2.writers[0].drain()
+    for _ in range(50):
+        if got:
+            break
+        await asyncio.sleep(0.02)
+    assert got[-1][:4] == [15, 15, 19, 19]
+    unsub()
+    unsub()  # idempotent
+    n = len(got)
+    m2.writers[0].write(b"#|ALL|M001|VU|000000000000000000000000000000000000040|0000|\r\n\x00")
+    await m2.writers[0].drain()
+    await asyncio.sleep(0.1)
+    assert len(got) == n
+    await hub.async_stop()
+
+
+async def test_broken_vu_listener_does_not_stop_the_reader(m2):
+    hub = await _started_hub(m2)
+
+    def boom(_levels: list[int]) -> None:
+        raise RuntimeError("listener bug")
+
+    hub.add_vu_listener(boom)
+    m2.writers[0].write(b"#|ALL|M001|VU|151519192323181700000000000016170000040|52a1|\r\n\x00")
+    await m2.writers[0].drain()
+    await hub.set_volume_pct(7, 0)  # the reader must still deliver the ack
+    await hub.async_stop()

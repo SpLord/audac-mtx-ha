@@ -1,0 +1,11 @@
+# AUDAC mixer card (v0.7.0+): one channel strip per output, like the AUDAC app.
+# Shipped with the integration — no Lovelace resource or HACS frontend package needed.
+# Paste as a view in "Edit raw configuration".
+title: Sound
+path: sound
+type: panel          # card fills the whole view (best on a wall tablet)
+cards:
+  - type: custom:audac-mixer-card
+    # entry_id: <only needed with more than one AUDAC device>
+    # zones: [1, 2, 3, 4]   # optional subset
+    # height: 600           # px, optional

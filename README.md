@@ -88,6 +88,26 @@ M2 source list: `None` plus inputs 1–9 (9 = Line In, switched between A–D on
 
 The MTX broadcasts an Update frame to every connected client after any state change (its own front-panel knobs, the AUDAC Touch app, wall panels) — so HA stays in sync without polling.
 
+## Mixer card
+
+![Mixer card](examples/dashboards/screenshots/mixer-card-ipad.png)
+
+Since **v0.7.0** the integration ships a mixer card that looks like the AUDAC app: one strip per output with source, level in dB, a vertical fader with ▲/▼ (3 dB steps), mute and — on the M2 — live L/R level meters. Tap the output name for bass/treble.
+
+```yaml
+type: custom:audac-mixer-card
+# entry_id: …        only needed with more than one AUDAC device
+# zones: [1, 2, 3]   optional subset
+# height: 600        px, optional
+```
+
+- No resource to add: the integration serves the JS itself (the URL carries the version, so tablets pick up updates after a reload). The card shows its version in the top-right corner.
+- Channel names and entity IDs come from the integration (`audac_mtx/get_layout`), so the card needs no entity list.
+- Level meters are streamed over the websocket (`audac_mtx/subscribe_vu`, ~10/s) and never written to the HA state machine or the recorder.
+- The fader follows the finger but never jumps on touch; 0…−60 dB take the upper 85 % of the travel. While dragging, at most 5 volume commands per second go to the device.
+- **Save settings** is deliberately not on the card — use the button entity when a setup should survive a power cycle.
+- A ready-made panel view is in [`examples/dashboards/mixer.yaml`](examples/dashboards/mixer.yaml).
+
 ## Dashboard quickstart
 
 Home Assistant's "Add to Dashboard" button creates basic Tile cards. To get full Tile features (volume slider + source select) for every zone, copy one of the example layouts from [`examples/dashboards/`](examples/dashboards/):
@@ -107,7 +127,7 @@ Open Lovelace, edit the view (pencil icon top-right), choose **Edit raw configur
 
 - **Single TCP connection** is a hard device limit. While the AUDAC Touch app or web UI is open, this integration is "disconnected" — controls are ignored. Close the other client to regain control.
 - M2 zone/input names are read on every (re)connect; friendly names follow, but **entity IDs keep the name they were created with** (rename them in HA if you want new IDs).
-- VU-meter mapping (which physical input/output corresponds to which of the 10 levels) varies by firmware/configuration; the entities are exposed as `VU 1`..`VU 10` and you can rename them to match your setup.
+- VU-meter mapping: on the M2 the first 16 values are outputs 1–8 as L/R pairs (used by the mixer card). The diagnostic `VU 1`..`VU 10` sensors expose the raw values; the MTX layout is undocumented, so the mixer card shows no meters there.
 
 ## Tests
 

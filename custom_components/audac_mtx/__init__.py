@@ -65,6 +65,13 @@ async def async_setup_entry(hass: "HomeAssistant", entry: "ConfigEntry") -> bool
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
 
+    from homeassistant.loader import async_get_integration
+
+    from .frontend import async_register_frontend
+
+    integration = await async_get_integration(hass, DOMAIN)
+    await async_register_frontend(hass, str(integration.version))
+
     platforms = [Platform.MEDIA_PLAYER, Platform.NUMBER, Platform.SENSOR, Platform.BUTTON]
     await hass.config_entries.async_forward_entry_setups(entry, platforms)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))

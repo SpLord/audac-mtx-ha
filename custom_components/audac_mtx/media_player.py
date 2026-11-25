@@ -14,6 +14,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DOMAIN
 from .coordinator import AudacCoordinator
 from .entity import AudacEntity
+from .mixer import volume_db
 
 
 async def async_setup_entry(
@@ -75,6 +76,14 @@ class AudacZone(AudacEntity, MediaPlayerEntity):
     def is_volume_muted(self) -> bool | None:
         zs = self._zone_state
         return zs.muted if zs else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, int | None]:
+        # For the mixer card: "-39 dB" like the AUDAC app; None = off/minimum
+        zs = self._zone_state
+        if zs is None:
+            return {}
+        return {"zone": self.zone, "volume_db": volume_db(self.coordinator.hub.profile, zs.volume_raw)}
 
     @property
     def source(self) -> str | None:

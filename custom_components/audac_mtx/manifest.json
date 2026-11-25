@@ -1,13 +1,22 @@
 {
   "domain": "audac_mtx",
   "name": "AUDAC MTX / M2",
-  "codeowners": ["@SpLord"],
+  "codeowners": [
+    "@SpLord"
+  ],
   "config_flow": true,
+  "dependencies": [
+    "frontend",
+    "http",
+    "websocket_api"
+  ],
   "documentation": "https://github.com/SpLord/audac-mtx-ha",
   "integration_type": "device",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/SpLord/audac-mtx-ha/issues",
-  "loggers": ["custom_components.audac_mtx"],
+  "loggers": [
+    "custom_components.audac_mtx"
+  ],
   "requirements": [],
-  "version": "0.6.0"
+  "version": "0.7.0"
 }
